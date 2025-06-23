@@ -1,0 +1,28 @@
+# 🔍 Configuration Streamlit - ICD-10/SNOMED Search App
+# Configuration optimisée pour la production
+
+[global]
+developmentMode = false
+showWarningOnDirectExecution = false
+
+[server]
+runOnSave = false
+port = 8501
+maxUploadSize = 200
+enableCORS = false
+enableWebsocketCompression = true
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[theme]
+# Thème médical professionnel
+primaryColor = "#1f77b4"        # Bleu médical
+backgroundColor = "#FFFFFF"      # Blanc propre
+secondaryBackgroundColor = "#F8F9FA"  # Gris très clair
+textColor = "#262730"           # Gris foncé
+font = "sans serif"             # Police lisible
+
+[logger]
+level = "info"
