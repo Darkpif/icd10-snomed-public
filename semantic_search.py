@@ -429,6 +429,13 @@ def semantic_search_multilingual(query, lang, model_type='generalist', top_k=5, 
             icd10_description = icd10_descriptions.get(lang, {}).get(icd10_code, None)
             if not icd10_description and '.' in icd10_code:
                 parent_code = icd10_code.split('.')[0]
+                icd10_description = icd10_descriptions.get(lang, {}).get(parent_code, None)
+                if icd10_description:
+                    icd10_description += f" ({parent_code})"
+        
+        results.append({
+            'conceptId': row.get('conceptId', None),
+            'term': row.get('term', None),
             'score': distances[0][i],
             'ICD10Code': icd10_code,
             'ICD10Description': icd10_description
