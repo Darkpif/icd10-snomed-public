@@ -17,6 +17,7 @@ warnings.filterwarnings('ignore', category=FutureWarning, module='transformers')
 # Imports avec gestion d'erreur pour PyTorch
 try:
     import torch
+    import torch.nn.functional as F
     # Vérification de la version PyTorch
     torch_version = torch.__version__.split('+')[0]
     print(f"PyTorch version: {torch_version} (CPU: {not torch.cuda.is_available()})")
@@ -36,7 +37,7 @@ import faiss
 from sklearn.preprocessing import normalize
 import xml.etree.ElementTree as ET
 import streamlit as st
-from sentence_transformers import SentenceTransformer
+from transformers import AutoModel, AutoTokenizer
 
 # Configuration des modèles (optimisés pour le déploiement)
 model_mapping_generalist = {
@@ -52,6 +53,29 @@ model_mapping_medical = {
     'it': 'Musixmatch/umberto-commoncrawl-cased-v1',  # Fine-tuned
     'en': 'emilyalsentzer/Bio_ClinicalBERT'
 }
+
+def mean_pooling(model_output, attention_mask):
+    """Effectue un mean pooling sur les embeddings de tokens."""
+    token_embeddings = model_output[0]  # Premier élément contient tous les embeddings de tokens
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
+def encode_text(text, model, tokenizer, max_length=512):
+    """Encode un texte en utilisant AutoModel et AutoTokenizer."""
+    # Tokeniser le texte
+    encoded_input = tokenizer(text, padding=True, truncation=True, max_length=max_length, return_tensors='pt')
+    
+    # Générer les embeddings
+    with torch.no_grad():
+        model_output = model(**encoded_input)
+    
+    # Appliquer le mean pooling
+    sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
+    
+    # Normaliser les embeddings
+    sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+    
+    return sentence_embeddings.numpy()
 
 @st.cache_resource
 def load_icd10_descriptions():
@@ -141,13 +165,14 @@ def preload_all_data():
     progress_bar = st.progress(0)
     status_text = st.empty()
     current = 0
-    
-    # 1. Chargement des modèles généralistes
+      # 1. Chargement des modèles généralistes
     status_text.text("🤖 Chargement des modèles généralistes...")
     for lang, model_name in model_mapping_generalist.items():
         try:
             status_text.text(f"Chargement modèle généraliste {lang.upper()}...")
-            all_data['models']['generalist'][lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            all_data['models']['generalist'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_operations)
             st.success(f"✅ Modèle généraliste {lang.upper()} chargé")
@@ -161,7 +186,9 @@ def preload_all_data():
     for lang, model_name in model_mapping_medical.items():
         try:
             status_text.text(f"Chargement modèle médical {lang.upper()}...")
-            all_data['models']['medical'][lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            all_data['models']['medical'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_operations)
             st.success(f"✅ Modèle médical {lang.upper()} chargé")
@@ -253,13 +280,14 @@ def preload_all_models():
     status_text = st.empty()
     
     current = 0
-    
-    # Chargement des modèles généralistes
+      # Chargement des modèles généralistes
     status_text.text("Chargement des modèles généralistes...")
     for lang, model_name in model_mapping_generalist.items():
         try:
             status_text.text(f"Chargement modèle généraliste {lang.upper()}...")
-            all_models['generalist'][lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            all_models['generalist'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_models)
             st.success(f"✅ Modèle généraliste {lang.upper()} chargé")
@@ -267,13 +295,14 @@ def preload_all_models():
             st.error(f"❌ Erreur modèle généraliste {lang}: {e}")
             current += 1
             progress_bar.progress(current / total_models)
-    
-    # Chargement des modèles médicaux
+      # Chargement des modèles médicaux
     status_text.text("Chargement des modèles médicaux...")
     for lang, model_name in model_mapping_medical.items():
         try:
             status_text.text(f"Chargement modèle médical {lang.upper()}...")
-            all_models['medical'][lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            all_models['medical'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_models)
             st.success(f"✅ Modèle médical {lang.upper()} chargé")
@@ -295,13 +324,17 @@ def load_models():
     
     for lang, model_name in model_mapping_generalist.items():
         try:
-            models_generalist[lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            models_generalist[lang] = {'model': model, 'tokenizer': tokenizer}
         except Exception as e:
             st.error(f"❌ Erreur modèle généraliste {lang}: {e}")
     
     for lang, model_name in model_mapping_medical.items():
         try:
-            models_medical[lang] = SentenceTransformer(model_name)
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            models_medical[lang] = {'model': model, 'tokenizer': tokenizer}
         except Exception as e:
             st.error(f"❌ Erreur modèle médical {lang}: {e}")
     
@@ -386,23 +419,21 @@ def semantic_search_multilingual(query, lang, model_type='generalist', top_k=5, 
     matching_lang = next((key for key in language_data.keys() if key.startswith(lang)), None)
     if not matching_lang:
         st.error(f"Langue {lang} non prise en charge.")
-        return []
-
-    # Sélectionner le modèle
+        return []    # Sélectionner le modèle
     base_lang = lang.split('-')[0] if '-' in lang else lang
     if model_type == 'generalist':
-        model = models_generalist.get(base_lang)
+        model_dict = models_generalist.get(base_lang)
         index = language_data.get(matching_lang, {}).get('generalist_faiss_index')
     else:
-        model = models_medical.get(base_lang)
+        model_dict = models_medical.get(base_lang)
         index = language_data.get(matching_lang, {}).get('medical_faiss_index')
 
-    if not model or not index:
+    if not model_dict or not index:
         st.error(f"Modèle ou index manquant pour {lang}")
         return []
 
     # Générer l'embedding de la requête
-    query_embedding = model.encode(query, show_progress_bar=False)
+    query_embedding = encode_text(query, model_dict['model'], model_dict['tokenizer'])
     query_embedding = normalize(query_embedding.reshape(1, -1), norm='l2')
 
     # Effectuer la recherche
