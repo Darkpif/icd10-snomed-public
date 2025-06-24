@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from semantic_search import semantic_search_multilingual, preload_all_data, model_mapping_generalist, load_icd10_descriptions
-import fasttext
+from langdetect import detect
 import os
 
 # Configuration de la page
@@ -13,22 +13,23 @@ st.set_page_config(
 )
 
 # Chargement du modèle FastText pour la détection de langue
-fasttext_model_path = "data/fasttext/lid.176.bin"  # Chemin vers le modèle pré-entraîné
-if not os.path.exists(fasttext_model_path):
-    st.error("❌ Modèle FastText introuvable. Veuillez le télécharger depuis https://fasttext.cc/docs/en/language-identification.html")
-    st.stop()
-
-fasttext_model = fasttext.load_model(fasttext_model_path)
+# fasttext_model_path = "data/fasttext/lid.176.bin"  # Chemin vers le modèle pré-entraîné
+# if not os.path.exists(fasttext_model_path):
+#     st.error("❌ Modèle FastText introuvable. Veuillez le télécharger depuis https://fasttext.cc/docs/en/language-identification.html")
+#     st.stop()
+# 
+# fasttext_model = fasttext.load_model(fasttext_model_path)
 
 def detect_language_fasttext(text):
     """Détecte la langue d'un texte donné en utilisant FastText."""
     try:
-        predictions = fasttext_model.predict(text, k=1)  # Prédiction de la langue avec le score le plus élevé
-        lang_code = predictions[0][0].replace("__label__", "")
+        #predictions = fasttext_model.predict(text, k=1)  # Prédiction de la langue avec le score le plus élevé
+        # lang_code = predictions[0][0].replace("__label__", "")
+        lang_code = detect(text)
         return lang_code
     except Exception as e:
-        st.warning(f"⚠️ Erreur lors de la détection de la langue avec FastText: {e}. Utilisation de l'anglais par défaut.")
-        return 'en-int'
+        st.warning(f"⚠️ Erreur lors de la détection de la langue avec LangDetect: {e}. Utilisation de l'anglais par défaut.")
+        return 'en'
 
 # Préchargement des modèles et données au démarrage
 if 'data_loaded' not in st.session_state:
