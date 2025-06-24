@@ -164,14 +164,13 @@ def preload_all_data():
     
     progress_bar = st.progress(0)
     status_text = st.empty()
-    current = 0
-      # 1. Chargement des modèles généralistes
+    current = 0    # 1. Chargement des modèles généralistes
     status_text.text("🤖 Chargement des modèles généralistes...")
     for lang, model_name in model_mapping_generalist.items():
         try:
             status_text.text(f"Chargement modèle généraliste {lang.upper()}...")
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             all_data['models']['generalist'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_operations)
@@ -187,7 +186,7 @@ def preload_all_data():
         try:
             status_text.text(f"Chargement modèle médical {lang.upper()}...")
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             all_data['models']['medical'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_operations)
@@ -286,7 +285,7 @@ def preload_all_models():
         try:
             status_text.text(f"Chargement modèle généraliste {lang.upper()}...")
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             all_models['generalist'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_models)
@@ -301,7 +300,7 @@ def preload_all_models():
         try:
             status_text.text(f"Chargement modèle médical {lang.upper()}...")
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             all_models['medical'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_models)
@@ -325,7 +324,7 @@ def load_models():
     for lang, model_name in model_mapping_generalist.items():
         try:
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             models_generalist[lang] = {'model': model, 'tokenizer': tokenizer}
         except Exception as e:
             st.error(f"❌ Erreur modèle généraliste {lang}: {e}")
@@ -333,7 +332,7 @@ def load_models():
     for lang, model_name in model_mapping_medical.items():
         try:
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
             models_medical[lang] = {'model': model, 'tokenizer': tokenizer}
         except Exception as e:
             st.error(f"❌ Erreur modèle médical {lang}: {e}")
