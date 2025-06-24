@@ -28,15 +28,17 @@ try:
         if classes_attr and hasattr(classes_attr, '__path__'):
             delattr(classes_attr, '__path__')
             
-except Exception as e:
-    print(f"Avertissement PyTorch: {e}")
+except ImportError as e:
+    print(f"Erreur d'importation: {e}")
+except RuntimeError as e:
+    print(f"Erreur d'exécution: {e}")
+except ValueError as e:
+    print(f"Erreur de valeur: {e}")
 
 import pandas as pd
-import numpy as np
 import faiss
 from sklearn.preprocessing import normalize
 import xml.etree.ElementTree as ET
-import streamlit as st
 from transformers import AutoModel, AutoTokenizer
 
 # Configuration des modèles (optimisés pour le déploiement)
@@ -170,16 +172,22 @@ def preload_all_data():
         try:
             status_text.text(f"Chargement modèle généraliste {lang.upper()}...")
             model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=(lang == 'de'))
             all_data['models']['generalist'][lang] = {'model': model, 'tokenizer': tokenizer}
             current += 1
             progress_bar.progress(current / total_operations)
             st.success(f"✅ Modèle généraliste {lang.upper()} chargé")
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             st.error(f"❌ Erreur modèle généraliste {lang}: {e}")
             current += 1
             progress_bar.progress(current / total_operations)
     
+    # Intégration de la logique de chargement local dans preload_all_data
+    for lang, model_name in model_mapping_generalist.items():
+        use_fast = lang == 'de'  # Utiliser use_fast=True uniquement pour l'allemand
+        local_path = f"models/{lang}/generalist"  # Chemin local hypothétique
+        all_data['models']['generalist'][lang] = load_model_local_or_remote(model_name, local_path, use_fast=use_fast)
+
     # 2. Chargement des modèles médicaux
     status_text.text("⚕️ Chargement des modèles médicaux...")
     for lang, model_name in model_mapping_medical.items():
@@ -191,11 +199,16 @@ def preload_all_data():
             current += 1
             progress_bar.progress(current / total_operations)
             st.success(f"✅ Modèle médical {lang.upper()} chargé")
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             st.error(f"❌ Erreur modèle médical {lang}: {e}")
             current += 1
             progress_bar.progress(current / total_operations)
     
+    # Intégration de la logique de chargement local dans preload_all_data
+    for lang, model_name in model_mapping_medical.items():
+        local_path = f"models/{lang}/medical"  # Chemin local hypothétique
+        all_data['models']['medical'][lang] = load_model_local_or_remote(model_name, local_path)
+
     # 3. Chargement des données FAISS
     status_text.text("📊 Chargement des index de recherche...")
     language_data = {}
@@ -218,7 +231,7 @@ def preload_all_data():
                     current += 1
                     progress_bar.progress(current / total_operations)
                     st.success(f"✅ Index généraliste {lang.upper()} chargé")
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     st.error(f"❌ Erreur index généraliste {lang}: {e}")
                     current += 1
                     progress_bar.progress(current / total_operations)
@@ -235,7 +248,7 @@ def preload_all_data():
                     current += 1
                     progress_bar.progress(current / total_operations)
                     st.success(f"✅ Index médical {lang.upper()} chargé")
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     st.error(f"❌ Erreur index médical {lang}: {e}")
                     current += 1
                     progress_bar.progress(current / total_operations)
@@ -251,7 +264,7 @@ def preload_all_data():
                     current += 1
                     progress_bar.progress(current / total_operations)
                     st.success(f"✅ Métadonnées {lang.upper()} chargées")
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     st.error(f"❌ Erreur métadonnées {lang}: {e}")
                     current += 1
                     progress_bar.progress(current / total_operations)
@@ -290,10 +303,17 @@ def preload_all_models():
             current += 1
             progress_bar.progress(current / total_models)
             st.success(f"✅ Modèle généraliste {lang.upper()} chargé")
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             st.error(f"❌ Erreur modèle généraliste {lang}: {e}")
             current += 1
             progress_bar.progress(current / total_models)
+    
+    # Intégration de la logique de chargement local dans preload_all_models
+    for lang, model_name in model_mapping_generalist.items():
+        use_fast = lang == 'de'  # Utiliser use_fast=True uniquement pour l'allemand
+        local_path = f"models/{lang}/generalist"  # Chemin local hypothétique
+        all_models['generalist'][lang] = load_model_local_or_remote(model_name, local_path, use_fast=use_fast)
+
       # Chargement des modèles médicaux
     status_text.text("Chargement des modèles médicaux...")
     for lang, model_name in model_mapping_medical.items():
@@ -305,10 +325,15 @@ def preload_all_models():
             current += 1
             progress_bar.progress(current / total_models)
             st.success(f"✅ Modèle médical {lang.upper()} chargé")
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             st.error(f"❌ Erreur modèle médical {lang}: {e}")
             current += 1
             progress_bar.progress(current / total_models)
+    
+    # Intégration de la logique de chargement local dans preload_all_models
+    for lang, model_name in model_mapping_medical.items():
+        local_path = f"models/{lang}/medical"  # Chemin local hypothétique
+        all_models['medical'][lang] = load_model_local_or_remote(model_name, local_path)
     
     progress_bar.progress(1.0)
     status_text.text("✅ Tous les modèles sont chargés et prêts !")
@@ -472,3 +497,18 @@ def semantic_search_multilingual(query, lang, model_type='generalist', top_k=5, 
         })
 
     return results
+
+def load_model_local_or_remote(model_name, local_path=None, use_fast=False):
+    """Charge un modèle depuis un chemin local ou depuis Hugging Face."""
+    try:
+        if local_path and os.path.exists(local_path):
+            model = AutoModel.from_pretrained(local_path, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(local_path, trust_remote_code=True, use_fast=use_fast)
+            return {'model': model, 'tokenizer': tokenizer}
+        else:
+            model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, use_fast=use_fast)
+            return {'model': model, 'tokenizer': tokenizer}
+    except Exception as e:
+        st.error(f"❌ Erreur lors du chargement du modèle {model_name}: {e}")
+        return None
