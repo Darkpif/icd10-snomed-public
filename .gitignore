@@ -215,3 +215,6 @@ deployment_structure.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Conda
+.conda/
